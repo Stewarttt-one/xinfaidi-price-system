@@ -1,0 +1,361 @@
+<div class="row g-3 mb-4 align-items-end">
+    <div class="col-md-3">
+        <label class="form-label small text-muted">品名</label>
+        <input type="text" id="searchName" class="form-control" placeholder="输入蔬菜名称搜索">
+    </div>
+    <div class="col-md-2">
+        <label class="form-label small text-muted">日期</label>
+        <input type="date" id="recordDate" class="form-control">
+    </div>
+    <div class="col-md-auto">
+        <button class="btn btn-success" id="searchBtn">
+            <i class="fas fa-search me-1"></i>搜索
+        </button>
+    </div>
+    <div class="col-md-auto">
+        <button class="btn btn-outline-secondary" id="resetBtn">
+            <i class="fas fa-undo me-1"></i>重置
+        </button>
+    </div>
+    <div class="col-md-auto">
+        <button class="btn btn-success" id="exportBtn" style="background-color: #2e7d32;">
+            <i class="fas fa-file-excel me-1"></i>导出Excel
+        </button>
+    </div>
+    <div class="col-md-auto ms-md-auto">
+        <label class="form-label small text-muted">每页显示</label>
+        <select id="perPage" class="form-select form-select-sm" style="width: 80px;">
+            <option value="10">10条</option>
+            <option value="20" selected>20条</option>
+            <option value="50">50条</option>
+            <option value="100">100条</option>
+        </select>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover align-middle" style="border-collapse: separate; border-spacing: 0;">
+        <thead>
+            <tr style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9);">
+                <th class="py-3 px-3" style="border-radius: 12px 0 0 0;">序号</th>
+                <th class="py-3 px-3">品名</th>
+                <th class="py-3 px-3">分类</th>
+                <th class="py-3 px-3">最低价</th>
+                <th class="py-3 px-3">最高价</th>
+                <th class="py-3 px-3">平均价</th>
+                <th class="py-3 px-3">产地</th>
+                <th class="py-3 px-3">单位</th>
+                <th class="py-3 px-3" style="border-radius: 0 12px 0 0;">日期</th>
+            </tr>
+        </thead>
+        <tbody id="dataTableBody">
+            <tr>
+                <td colspan="9" class="text-center py-5">
+                    <div class="spinner-border text-success"></div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mt-4 pt-2">
+    <div class="text-muted small">
+        显示第 <span id="startRecord">1</span> - <span id="endRecord">20</span> 条，共 <span id="totalRecords">0</span> 条
+    </div>
+    <ul class="pagination pagination-sm mb-0" id="paginationContainer"></ul>
+</div>
+
+<style>
+.table {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.table thead th {
+    font-weight: 600;
+    font-size: 13px;
+    color: #2e7d32;
+    border-bottom: none;
+}
+.table tbody td {
+    padding: 12px;
+    border-bottom: 1px solid #f0f0f0;
+    background: white;
+}
+.table tbody tr:hover td {
+    background-color: #f9fbe7;
+}
+.price-high {
+    color: #e53935;
+    font-weight: 600;
+}
+.price-low {
+    color: #2e7d32;
+    font-weight: 600;
+}
+.pagination {
+    gap: 5px;
+}
+.pagination .page-link {
+    color: #2e7d32;
+    border: 1px solid #e8f5e9;
+    border-radius: 8px;
+    padding: 6px 12px;
+    margin: 0 2px;
+}
+.pagination .page-link:hover {
+    background-color: #e8f5e9;
+    border-color: #c8e6c9;
+    transform: translateY(-1px);
+}
+.pagination .active .page-link {
+    background: linear-gradient(135deg, #66bb6a, #2e7d32);
+    border-color: #2e7d32;
+    color: white;
+}
+.pagination .disabled .page-link {
+    color: #c8e6c9;
+    background: #f9fbe7;
+}
+.page-input-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 10px;
+}
+.page-input-group .form-control {
+    width: 60px;
+    padding: 4px 8px;
+    text-align: center;
+    border-radius: 8px;
+    border: 1px solid #c8e6c9;
+}
+.page-input-group .btn-go {
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: #e8f5e9;
+    border: 1px solid #c8e6c9;
+    color: #2e7d32;
+}
+</style>
+
+<script>
+(function() {
+    let currentPage = 1;
+    let totalPages = 1;
+    let totalRecords = 0;
+
+    function loadDataList() {
+        var vegetableName = $('#searchName').val();
+        var recordDate = $('#recordDate').val();
+        var perPage = $('#perPage').val();
+
+        $('#dataTableBody').html('<tr><td colspan="9" class="text-center py-5"><div class="spinner-border text-success"></div></td></tr>');
+
+        $.ajax({
+            url: '/api/data/list',
+            method: 'GET',
+            data: {
+                page: currentPage,
+                per_page: perPage,
+                vegetable_name: vegetableName,
+                record_date: recordDate
+            },
+            success: function(res) {
+                if (res.success) {
+                    totalPages = res.pages;
+                    totalRecords = res.total;
+                    $('#totalRecords').text(totalRecords);
+                    renderDataTable(res.data);
+                    updatePagination();
+                } else {
+                    $('#dataTableBody').html('<tr><td colspan="9" class="text-center text-danger py-5">加载失败：' + (res.error || '未知错误') + '</td></tr>');
+                }
+            },
+            error: function() {
+                $('#dataTableBody').html('<tr><td colspan="9" class="text-center text-danger py-5">加载失败，请重试</a></a>');
+            }
+        });
+    }
+
+    function renderDataTable(data) {
+        if (!data || data.length === 0) {
+            $('#dataTableBody').html('<tr><td colspan="9" class="text-center text-muted py-5">暂无数据</a></a>');
+            return;
+        }
+
+        var perPage = parseInt($('#perPage').val());
+        var startIndex = (currentPage - 1) * perPage + 1;
+        var html = '';
+
+        for (var i = 0; i < data.length; i++) {
+            var item = data[i];
+            var priceClass = '';
+            if (item.price) {
+                if (item.price >= 3) priceClass = 'price-high';
+                else if (item.price <= 1) priceClass = 'price-low';
+            }
+            html += '<tr>' +
+                '<td class="text-center text-muted">' + (startIndex + i) + '</a>' +
+                '<td class="fw-bold">' + escapeHtml(item.vegetable_name) + '</a>' +
+                '<td><span class="badge bg-light text-dark">' + (escapeHtml(item.category) || '蔬菜') + '</span></a>' +
+                '<td>' + (item.min_price ? item.min_price.toFixed(2) : '-') + '</a>' +
+                '<td>' + (item.max_price ? item.max_price.toFixed(2) : '-') + '</a>' +
+                '<td class="' + priceClass + ' fw-bold">' + (item.price ? item.price.toFixed(2) : '-') + '</a>' +
+                '<td>' + (escapeHtml(item.place) || '-') + '</a>' +
+                '<td>' + (escapeHtml(item.unit) || '斤') + '</a>' +
+                '<td class="text-muted">' + item.record_date + '</a>' +
+                '</tr>';
+        }
+        $('#dataTableBody').html(html);
+    }
+
+    function updatePagination() {
+        var perPage = parseInt($('#perPage').val());
+        var startRecord = (currentPage - 1) * perPage + 1;
+        var endRecord = Math.min(currentPage * perPage, totalRecords);
+        $('#startRecord').text(startRecord);
+        $('#endRecord').text(endRecord);
+        generatePaginationButtons();
+    }
+
+    function generatePaginationButtons() {
+        var container = $('#paginationContainer');
+        container.empty();
+
+        var startPage = Math.max(1, currentPage - 2);
+        var endPage = Math.min(totalPages, currentPage + 2);
+
+        if (endPage - startPage < 4) {
+            if (startPage > 1) startPage = Math.max(1, endPage - 4);
+            if (endPage < totalPages) endPage = Math.min(totalPages, startPage + 4);
+        }
+
+        // 首页
+        var firstBtn = $('<li class="page-item" id="firstPage"><a class="page-link" href="#"><i class="fas fa-angle-double-left"></i></a></li>');
+        if (currentPage <= 1) firstBtn.addClass('disabled');
+        container.append(firstBtn);
+
+        // 上一页
+        var prevBtn = $('<li class="page-item" id="prevPage"><a class="page-link" href="#"><i class="fas fa-angle-left"></i></a></li>');
+        if (currentPage <= 1) prevBtn.addClass('disabled');
+        container.append(prevBtn);
+
+        // 省略号
+        if (startPage > 1) {
+            container.append('<li class="page-item disabled"><a class="page-link" href="#">...</a></li>');
+        }
+
+        // 页码按钮
+        for (var i = startPage; i <= endPage; i++) {
+            var pageBtn = $('<li class="page-item" data-page="' + i + '"><a class="page-link" href="#">' + i + '</a></li>');
+            if (i === currentPage) pageBtn.addClass('active');
+            pageBtn.click(function(e) {
+                e.preventDefault();
+                var p = parseInt($(this).data('page'));
+                if (!isNaN(p) && p !== currentPage) goToPage(p);
+            });
+            container.append(pageBtn);
+        }
+
+        // 省略号
+        if (endPage < totalPages) {
+            container.append('<li class="page-item disabled"><a class="page-link" href="#">...</a></li>');
+        }
+
+        // 下一页
+        var nextBtn = $('<li class="page-item" id="nextPage"><a class="page-link" href="#"><i class="fas fa-angle-right"></i></a></li>');
+        if (currentPage >= totalPages) nextBtn.addClass('disabled');
+        container.append(nextBtn);
+
+        // 末页
+        var lastBtn = $('<li class="page-item" id="lastPage"><a class="page-link" href="#"><i class="fas fa-angle-double-right"></i></a></li>');
+        if (currentPage >= totalPages) lastBtn.addClass('disabled');
+        container.append(lastBtn);
+
+        // 跳转输入框
+        var jumpBox = $('<div class="page-input-group">' +
+            '<span class="text-muted small">跳至</span>' +
+            '<input type="number" id="jumpPage" class="form-control" value="' + currentPage + '" min="1" max="' + totalPages + '">' +
+            '<button class="btn-go" id="jumpBtn">GO</button>' +
+            '</div>');
+        container.append(jumpBox);
+
+        // 绑定事件
+        $('#firstPage').off('click').on('click', function(e) {
+            e.preventDefault();
+            if (currentPage > 1) goToPage(1);
+        });
+        $('#prevPage').off('click').on('click', function(e) {
+            e.preventDefault();
+            if (currentPage > 1) goToPage(currentPage - 1);
+        });
+        $('#nextPage').off('click').on('click', function(e) {
+            e.preventDefault();
+            if (currentPage < totalPages) goToPage(currentPage + 1);
+        });
+        $('#lastPage').off('click').on('click', function(e) {
+            e.preventDefault();
+            if (currentPage < totalPages) goToPage(totalPages);
+        });
+        $('#jumpBtn').off('click').on('click', function() {
+            var p = parseInt($('#jumpPage').val());
+            if (!isNaN(p) && p >= 1 && p <= totalPages) goToPage(p);
+        });
+        $('#jumpPage').off('keypress').on('keypress', function(e) {
+            if (e.which === 13) {
+                var p = parseInt($(this).val());
+                if (!isNaN(p) && p >= 1 && p <= totalPages) goToPage(p);
+            }
+        });
+    }
+
+    function goToPage(page) {
+        if (page < 1) page = 1;
+        if (page > totalPages) page = totalPages;
+        if (page === currentPage) return;
+        currentPage = page;
+        loadDataList();
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text.replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function resetSearch() {
+        $('#searchName').val('');
+        $('#recordDate').val('');
+        currentPage = 1;
+        loadDataList();
+    }
+
+    $('#searchBtn').off('click').on('click', function() {
+        currentPage = 1;
+        loadDataList();
+    });
+    $('#resetBtn').off('click').on('click', resetSearch);
+    $('#perPage').off('change').on('change', function() {
+        currentPage = 1;
+        loadDataList();
+    });
+    $('#searchName').off('keypress').on('keypress', function(e) {
+        if (e.which === 13) {
+            currentPage = 1;
+            loadDataList();
+        }
+    });
+    $('#exportBtn').off('click').on('click', function() {
+        var url = '/api/export_excel?';
+        if ($('#searchName').val()) url += 'vegetable_name=' + encodeURIComponent($('#searchName').val()) + '&';
+        if ($('#recordDate').val()) url += 'record_date=' + $('#recordDate').val() + '&';
+        window.location.href = url;
+    });
+
+    loadDataList();
+})();
+</script>

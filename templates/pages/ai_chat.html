@@ -1,0 +1,155 @@
+<div class="d-flex flex-column" style="height: calc(100vh - 140px);">
+    <!-- 快捷按钮 -->
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <button class="btn btn-outline-success btn-sm" id="adviceBtn">
+            <i class="fas fa-shopping-cart me-1"></i>采购建议
+        </button>
+        <input type="text" id="predictName" class="form-control form-control-sm" placeholder="蔬菜名称" style="width: 120px;">
+        <button class="btn btn-outline-success btn-sm" id="predictBtn">
+            <i class="fas fa-chart-line me-1"></i>价格预测
+        </button>
+    </div>
+
+    <!-- 对话区域 -->
+    <div id="chatHistory" class="flex-grow-1 overflow-auto mb-3 p-3 bg-light rounded" style="min-height: 300px;">
+        <div class="ai-message mb-3">
+            <div class="fw-bold text-success mb-2">
+                <i class="fas fa-robot me-1"></i> AI助手
+            </div>
+            <div class="bg-white p-3 rounded shadow-sm">
+                你好！我是AI智能助手，可以帮你：
+                <ul class="mt-2 mb-0">
+                    <li>查询蔬菜价格走势</li>
+                    <li>分析涨跌原因</li>
+                    <li>预测价格趋势</li>
+                    <li>给出采购建议</li>
+                </ul>
+                <div class="mt-2">试试问我："大白菜最近价格怎么样？" 或 "哪些蔬菜涨价了？"</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 输入区域 -->
+    <div class="input-group mb-3">
+        <input type="text" id="question" class="form-control" placeholder="输入你的问题...">
+        <button class="btn btn-success" id="askBtn">
+            <i class="fas fa-paper-plane me-1"></i>发送
+        </button>
+    </div>
+
+    <!-- 示例问题 -->
+    <div class="d-flex flex-wrap gap-2">
+        <span class="small text-muted">试试问：</span>
+        <button class="btn btn-sm btn-outline-secondary example-btn" data-q="最近哪些蔬菜涨价了？">最近哪些蔬菜涨价了？</button>
+        <button class="btn btn-sm btn-outline-secondary example-btn" data-q="现在什么菜最便宜？">现在什么菜最便宜？</button>
+        <button class="btn btn-sm btn-outline-secondary example-btn" data-q="大白菜价格走势如何？">大白菜价格走势如何？</button>
+        <button class="btn btn-sm btn-outline-secondary example-btn" data-q="今天买菜有什么推荐？">今天买菜有什么推荐？</button>
+    </div>
+</div>
+
+<script>
+function addMessage(role, content) {
+    var isUser = (role === 'user');
+    var html = '';
+    if (isUser) {
+        html = '<div class="user-message mb-3 text-end">' +
+               '<div class="small text-muted mb-1"><i class="fas fa-user"></i> 你</div>' +
+               '<div class="d-inline-block bg-success text-white p-2 rounded" style="max-width: 80%;">' + content + '</div>' +
+               '</div>';
+    } else {
+        var renderedContent = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+        html = '<div class="ai-message mb-3">' +
+               '<div class="small text-success mb-1"><i class="fas fa-robot"></i> AI助手</div>' +
+               '<div class="d-inline-block bg-white p-2 rounded shadow-sm" style="max-width: 85%;">' + renderedContent + '</div>' +
+               '</div>';
+    }
+    $('#chatHistory').append(html);
+    $('#chatHistory').scrollTop($('#chatHistory')[0].scrollHeight);
+}
+
+function askQuestion() {
+    var question = $('#question').val();
+    if (!question.trim()) return;
+
+    addMessage('user', question);
+    $('#question').val('');
+    addMessage('ai', '<div class="spinner-border spinner-border-sm text-success me-1" role="status"></div> 思考中...');
+
+    $.ajax({
+        url: '/api/ai/chat',
+        method: 'POST',
+        data: JSON.stringify({question: question}),
+        contentType: 'application/json',
+        success: function(res) {
+            $('#chatHistory .ai-message:last-child').remove();
+            addMessage('ai', res.success ? res.answer : '抱歉，出了点问题，请稍后再试。');
+        },
+        error: function() {
+            $('#chatHistory .ai-message:last-child').remove();
+            addMessage('ai', '网络错误，请检查连接后重试。');
+        }
+    });
+}
+
+function getAdvice() {
+    addMessage('user', '请给我今天的采购建议');
+    addMessage('ai', '<div class="spinner-border spinner-border-sm text-success me-1" role="status"></div> 分析中...');
+
+    $.ajax({
+        url: '/api/ai/advice',
+        method: 'GET',
+        success: function(res) {
+            $('#chatHistory .ai-message:last-child').remove();
+            addMessage('ai', res.success ? res.advice : '获取建议失败，请稍后再试。');
+        }
+    });
+}
+
+function predictPrice() {
+    var name = $('#predictName').val();
+    if (!name) {
+        alert('请输入蔬菜名称');
+        return;
+    }
+
+    addMessage('user', '预测' + name + '的价格走势');
+    addMessage('ai', '<div class="spinner-border spinner-border-sm text-success me-1" role="status"></div> 分析中...');
+
+    $.ajax({
+        url: '/api/ai/predict/' + encodeURIComponent(name),
+        method: 'GET',
+        success: function(res) {
+            $('#chatHistory .ai-message:last-child').remove();
+            addMessage('ai', res.success ? res.prediction : '未找到' + name + '的价格数据');
+        }
+    });
+}
+
+$('#askBtn').click(askQuestion);
+$('#adviceBtn').click(getAdvice);
+$('#predictBtn').click(predictPrice);
+$('#question').keypress(function(e) {
+    if (e.which === 13) askQuestion();
+});
+$('.example-btn').click(function() {
+    var q = $(this).data('q');
+    $('#question').val(q);
+    askQuestion();
+});
+</script>
+
+<style>
+.example-btn {
+    background: white;
+    border: 1px solid #c8e6c9;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.example-btn:hover {
+    background: #e8f5e9;
+    border-color: #66bb6a;
+}
+</style>

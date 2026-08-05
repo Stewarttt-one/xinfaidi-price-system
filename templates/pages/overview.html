@@ -1,0 +1,242 @@
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-4" style="background: linear-gradient(135deg, #f1f8e9, #dcedc8);">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-success mb-1">蔬菜价格记录总数</h6>
+                    <h2 class="text-success mb-0">{{ total_count }}</h2>
+                    <small class="text-muted">条历史记录</small>
+                </div>
+                <div class="bg-success bg-opacity-25 rounded-circle p-3">
+                    <i class="fas fa-database fa-2x text-success"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-4" style="background: linear-gradient(135deg, #f1f8e9, #dcedc8);">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-success mb-1">今日均价</h6>
+                    <h2 class="text-success mb-0">{{ "%.2f"|format(avg_price) }}</h2>
+                    <small class="text-muted">元/斤</small>
+                </div>
+                <div class="bg-success bg-opacity-25 rounded-circle p-3">
+                    <i class="fas fa-chart-line fa-2x text-success"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-4" style="background: linear-gradient(135deg, #f1f8e9, #dcedc8);">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-success mb-1">数据日期</h6>
+                    <h2 class="text-success mb-0">{{ today.strftime('%m/%d') }}</h2>
+                    <small class="text-muted">{{ today.strftime('%Y-%m-%d') }}</small>
+                </div>
+                <div class="bg-success bg-opacity-25 rounded-circle p-3">
+                    <i class="fas fa-calendar fa-2x text-success"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 饼图和趋势图 -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-header bg-white border-0 pt-4 pb-0">
+                <h5 class="text-success mb-0"><i class="fas fa-chart-pie me-2"></i>历史价格TOP10蔬菜</h5>
+            </div>
+            <div class="card-body">
+                <div id="categoryPieChart" style="width: 100%; height: 350px;"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-header bg-white border-0 pt-4 pb-0">
+                <h5 class="text-success mb-0"><i class="fas fa-chart-line me-2"></i>近7日整体价格趋势</h5>
+            </div>
+            <div class="card-body">
+                <div id="trendLineChart" style="width: 100%; height: 350px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 涨幅排行 -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-header bg-white border-0 pt-4 pb-0">
+                <h5 class="text-success mb-0"><i class="fas fa-arrow-up text-danger me-2"></i>近20日涨幅排行 TOP6</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>蔬菜名称</th>
+                                <th class="text-center">今日价</th>
+                                <th class="text-center">20日均价</th>
+                                <th class="text-center">涨幅</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in top_increase %}
+                            <tr>
+                                <td><a class="text-success fw-bold text-decoration-none" onclick="window.loadPage('analysis'); setTimeout(function() { window.selectVegetable('{{ item.name }}'); }, 100);">{{ item.name }}</a></td>
+                                <td class="text-center">{{ "%.2f"|format(item.current_price) }}</td>
+                                <td class="text-center">{{ "%.2f"|format(item.avg_price_20d) }}</td>
+                                <td class="text-center text-danger fw-bold">+{{ "%.2f"|format(item.change_rate) }}%</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="4" class="text-center text-muted py-4">暂无数据</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div id="increaseChart" style="width: 100%; height: 260px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 跌幅排行 -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-header bg-white border-0 pt-4 pb-0">
+                <h5 class="text-success mb-0"><i class="fas fa-arrow-down text-success me-2"></i>近20日跌幅排行 TOP6</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>蔬菜名称</th>
+                                <th class="text-center">今日价</th>
+                                <th class="text-center">20日均价</th>
+                                <th class="text-center">跌幅</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in top_decrease %}
+                            <tr>
+                                <td><a class="text-success fw-bold text-decoration-none" onclick="window.loadPage('analysis'); setTimeout(function() { window.selectVegetable('{{ item.name }}'); }, 100);">{{ item.name }}</a></td>
+                                <td class="text-center">{{ "%.2f"|format(item.current_price) }}</td>
+                                <td class="text-center">{{ "%.2f"|format(item.avg_price_20d) }}</td>
+                                <td class="text-center text-success fw-bold">{{ "%.2f"|format(item.change_rate) }}%</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="4" class="text-center text-muted py-4">暂无数据</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div id="decreaseChart" style="width: 100%; height: 260px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 饼图绘制
+function drawCategoryPieChart(pieData) {
+    console.log("饼图数据:", pieData);
+    if (!pieData || pieData.length === 0) {
+        $('#categoryPieChart').html('<div class="text-center py-5 text-muted">暂无数据</div>');
+        return;
+    }
+    var chartDom = document.getElementById('categoryPieChart');
+    if (!chartDom) return;
+    var chart = echarts.init(chartDom);
+    chart.setOption({
+        tooltip: { trigger: 'item', formatter: '{b}: ¥{c}元/斤 ({d}%)' },
+        legend: { orient: 'vertical', left: 'left', textStyle: { fontSize: 11 } },
+        series: [{
+            type: 'pie', radius: '55%', center: ['50%', '50%'], data: pieData,
+            label: { show: true, formatter: '{b}', fontSize: 11, position: 'outside' },
+            emphasis: { scale: true, label: { show: true, formatter: '{b}: {d}%' } }
+        }]
+    });
+    window.addEventListener('resize', function() { chart.resize(); });
+}
+
+// 趋势折线图
+function drawTrendLineChart(trendData) {
+    if (!trendData || trendData.length === 0) {
+        $('#trendLineChart').html('<div class="text-center py-5 text-muted">暂无数据</div>');
+        return;
+    }
+    var chartDom = document.getElementById('trendLineChart');
+    if (!chartDom) return;
+    var chart = echarts.init(chartDom);
+    chart.setOption({
+        tooltip: { trigger: 'axis' },
+        grid: { left: '8%', right: '5%', top: '10%', bottom: '8%', containLabel: true },
+        xAxis: { type: 'category', data: trendData.map(d => d.date), axisLabel: { rotate: 0 } },
+        yAxis: { type: 'value', name: '价格(元/斤)' },
+        series: [{ type: 'line', data: trendData.map(d => d.price), smooth: true, lineStyle: { color: '#2e7d32', width: 3 }, areaStyle: { opacity: 0.2, color: '#66bb6a' }, symbol: 'circle', symbolSize: 8, markPoint: { data: [{ type: 'max' }, { type: 'min' }] }, markLine: { data: [{ type: 'average' }] } }]
+    });
+    window.addEventListener('resize', function() { chart.resize(); });
+}
+
+// 涨幅条形图
+function drawIncreaseChart(data) {
+    if (!data || data.length === 0) {
+        $('#increaseChart').html('<div class="text-center py-5 text-muted">暂无数据</div>');
+        return;
+    }
+    var chartDom = document.getElementById('increaseChart');
+    if (!chartDom) return;
+    var chart = echarts.init(chartDom);
+    chart.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        grid: { left: '8%', right: '3%', top: '10%', bottom: '5%', containLabel: true },
+        xAxis: { type: 'category', data: data.map(d => d.name), axisLabel: { rotate: 30, fontSize: 10 } },
+        yAxis: { type: 'value', name: '涨幅 (%)' },
+        series: [{ type: 'bar', data: data.map(d => d.change_rate), itemStyle: { color: '#ef4444', borderRadius: [4,4,0,0], label: { show: true, position: 'top', formatter: '{c}%' } } }]
+    });
+    window.addEventListener('resize', function() { chart.resize(); });
+}
+
+// 跌幅条形图
+function drawDecreaseChart(data) {
+    if (!data || data.length === 0) {
+        $('#decreaseChart').html('<div class="text-center py-5 text-muted">暂无数据</div>');
+        return;
+    }
+    var chartDom = document.getElementById('decreaseChart');
+    if (!chartDom) return;
+    var chart = echarts.init(chartDom);
+    chart.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        grid: { left: '8%', right: '3%', top: '10%', bottom: '5%', containLabel: true },
+        xAxis: { type: 'category', data: data.map(d => d.name), axisLabel: { rotate: 30, fontSize: 10 } },
+        yAxis: { type: 'value', name: '跌幅 (%)' },
+        series: [{ type: 'bar', data: data.map(d => Math.abs(d.change_rate)), itemStyle: { color: '#10b981', borderRadius: [4,4,0,0], label: { show: true, position: 'top', formatter: '{c}%' } } }]
+    });
+    window.addEventListener('resize', function() { chart.resize(); });
+}
+
+$(document).ready(function() {
+    setTimeout(function() {
+        var pieData = {{ pie_data | tojson | safe }};
+        var trendData = {{ trend_data | tojson | safe }};
+        var increaseData = {{ top_increase | tojson | safe }};
+        var decreaseData = {{ top_decrease | tojson | safe }};
+
+        console.log("pieData:", pieData);
+        console.log("trendData:", trendData);
+        console.log("increaseData:", increaseData);
+        console.log("decreaseData:", decreaseData);
+
+        if (pieData && pieData.length) drawCategoryPieChart(pieData);
+        if (trendData && trendData.length) drawTrendLineChart(trendData);
+        if (increaseData && increaseData.length) drawIncreaseChart(increaseData);
+        if (decreaseData && decreaseData.length) drawDecreaseChart(decreaseData);
+    }, 300);
+});
+</script>

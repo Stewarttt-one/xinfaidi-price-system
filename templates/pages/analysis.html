@@ -1,0 +1,147 @@
+<div class="row g-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-header bg-white border-0 pt-4 pb-0">
+                <h5 class="text-success mb-0"><i class="fas fa-list me-2"></i>蔬菜列表</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush" style="max-height: 500px; overflow-y: auto;">
+                    {% for veg in vegetables %}
+                    <a href="#" class="list-group-item list-group-item-action veg-item" data-name="{{ veg.name }}" onclick="selectVegetable('{{ veg.name }}'); return false;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <strong>{{ veg.name }}</strong>
+                            <i class="fas fa-chevron-right text-success"></i>
+                        </div>
+                    </a>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">暂无数据</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-9">
+        <div id="detailPanel" class="text-center py-5 text-muted">
+            <i class="fas fa-chart-line fa-4x mb-3 text-success"></i>
+            <p>请从左侧选择一种蔬菜查看详细分析</p>
+        </div>
+    </div>
+</div>
+
+<script>
+var currentChart = null;
+
+function selectVegetable(name) {
+    $('.veg-item').removeClass('active');
+    $('.veg-item[data-name="' + name + '"]').addClass('active');
+
+    $('#detailPanel').html(`
+        <div class="text-center py-5">
+            <div class="spinner-border text-success" role="status">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+            <p class="mt-3">加载中...</p>
+        </div>
+    `);
+
+    $.ajax({
+        url: '/api/vegetable_detail/' + encodeURIComponent(name),
+        method: 'GET',
+        success: function(data) {
+            renderDetail(data);
+        },
+        error: function() {
+            $('#detailPanel').html(`
+                <div class="text-center py-5 text-danger">
+                    <i class="fas fa-exclamation-circle fa-4x mb-3"></i>
+                    <p>加载失败</p>
+                </div>
+            `);
+        }
+    });
+}
+
+function renderDetail(data) {
+    var changeClass = data.change_rate > 0 ? 'text-danger' : (data.change_rate < 0 ? 'text-success' : '');
+    var changeSign = data.change_rate > 0 ? '+' : '';
+
+    var html = `
+        <div class="mb-4">
+            <h3 class="h2 text-success">${data.name}</h3>
+            <p class="text-muted">品类：${data.category || '蔬菜'}</p>
+        </div>
+        <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-md-3">
+                <div class="card bg-light border-0">
+                    <div class="card-body text-center">
+                        <div class="small text-muted">今日价格</div>
+                        <div class="h3 text-success">${data.price.toFixed(2)}</div>
+                        <div class="small">元/斤</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <div class="card bg-light border-0">
+                    <div class="card-body text-center">
+                        <div class="small text-muted">较昨日</div>
+                        <div class="h3 ${changeClass}">${changeSign}${data.change_rate.toFixed(2)}%</div>
+                        <div class="small">${data.yesterday_price ? data.yesterday_price.toFixed(2) + '元' : '无数据'}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <div class="card bg-light border-0">
+                    <div class="card-body text-center">
+                        <div class="small text-muted">近7日均价</div>
+                        <div class="h3 text-success">${data.avg_price_7d ? data.avg_price_7d.toFixed(2) : '--'}</div>
+                        <div class="small">元/斤</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <div class="card bg-light border-0">
+                    <div class="card-body text-center">
+                        <div class="small text-muted">近20日均价</div>
+                        <div class="h3 text-success">${data.avg_price_20d ? data.avg_price_20d.toFixed(2) : '--'}</div>
+                        <div class="small">元/斤</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div id="trendChart" style="height: 350px;"></div>
+            </div>
+        </div>
+    `;
+
+    $('#detailPanel').html(html);
+
+    if (currentChart) {
+        currentChart.dispose();
+    }
+
+    var chart = echarts.init(document.getElementById('trendChart'));
+    var dates = data.history.map(function(h) { return h.date; });
+    var prices = data.history.map(function(h) { return h.price; });
+
+    chart.setOption({
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, interval: 5 } },
+        yAxis: { type: 'value', name: '价格(元/斤)' },
+        series: [{
+            type: 'line',
+            data: prices,
+            smooth: true,
+            lineStyle: { color: '#2e7d32', width: 3 },
+            areaStyle: { opacity: 0.2, color: '#2e7d32' },
+            symbol: 'circle',
+            symbolSize: 6
+        }]
+    });
+
+    currentChart = chart;
+}
+
+window.selectVegetable = selectVegetable;
+</script>

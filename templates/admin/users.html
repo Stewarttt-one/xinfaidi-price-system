@@ -1,0 +1,329 @@
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h5 class="text-success m-0"><i class="fas fa-users me-2"></i>用户管理</h5>
+    <button class="btn btn-success btn-sm" id="addUserBtn"><i class="fas fa-plus me-1"></i>添加用户</button>
+</div>
+
+<!-- 搜索栏 -->
+<div class="row g-3 mb-4 align-items-end">
+    <div class="col-md-3">
+        <label class="form-label small text-muted">用户名搜索</label>
+        <input type="text" id="searchUsername" class="form-control" placeholder="输入用户名搜索">
+    </div>
+    <div class="col-md-auto">
+        <button class="btn btn-success btn-sm" id="searchBtn"><i class="fas fa-search me-1"></i>搜索</button>
+        <button class="btn btn-outline-secondary btn-sm ms-2" id="resetBtn"><i class="fas fa-undo me-1"></i>重置</button>
+    </div>
+    <div class="col-md-auto ms-md-auto">
+        <label class="form-label small text-muted">每页显示</label>
+        <select id="perPage" class="form-select form-select-sm" style="width:80px">
+            <option value="10" selected>10条</option>
+            <option value="20">20条</option>
+            <option value="50">50条</option>
+        </select>
+    </div>
+</div>
+
+<!-- 用户表格 -->
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead class="table-light">
+            <tr><th>用户名</th><th>角色</th><th>创建时间</th><th style="width:140px;text-align:right">操作</th></tr>
+        </thead>
+        <tbody id="userTableBody"><tr><td colspan="4" class="text-center py-5"><div class="spinner-border text-success"></div></td></tr></tbody>
+    </table>
+</div>
+
+<!-- 分页 -->
+<div class="d-flex justify-content-between align-items-center mt-3">
+    <div class="text-muted small">共 <span id="totalRecords">0</span> 条</div>
+    <div>
+        <button class="btn btn-sm btn-outline-secondary" id="prevPage" disabled><i class="fas fa-chevron-left me-1"></i>上一页</button>
+        <span class="mx-2 text-muted small">第 <span id="currentPage">1</span> / <span id="totalPages">1</span> 页</span>
+        <button class="btn btn-sm btn-outline-secondary" id="nextPage" disabled>下一页<i class="fas fa-chevron-right ms-1"></i></button>
+    </div>
+</div>
+
+<!-- 添加/编辑模态框 -->
+<div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="userModalLabel"><i class="fas fa-user-plus me-2"></i>添加用户</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="userForm">
+                    <input type="hidden" id="userId">
+                    <div class="mb-3">
+                        <label class="form-label">用户名</label>
+                        <input type="text" id="username" class="form-control" required>
+                    </div>
+                    <div class="mb-3" id="passwordDiv">
+                        <label class="form-label">密码</label>
+                        <input type="password" id="password" class="form-control" placeholder="留空则不修改密码">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">角色</label>
+                        <select id="role" class="form-select">
+                            <option value="user">普通用户</option>
+                            <option value="admin">管理员</option>
+                        </select>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success">保存</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+<script>
+(function() {
+    'use strict';
+
+    let currentPage = 1;
+    let totalPages = 1;
+    let totalRecords = 0;
+    let perPage = 10;
+    let userModal = null;
+
+    // 初始化模态框
+    function initModal() {
+        const modalElement = document.getElementById('userModal');
+        if (modalElement) {
+            userModal = new bootstrap.Modal(modalElement);
+        }
+    }
+
+    function loadUsers() {
+        const searchUsername = $('#searchUsername').val();
+
+        $('#userTableBody').html(`
+            <tr>
+                <td colspan="4" class="text-center py-5">
+                    <div class="spinner-border text-success"></div>
+                </td>
+            </tr>
+        `);
+
+        $.ajax({
+            url: '/admin/api/users',
+            method: 'GET',
+            data: {
+                page: currentPage,
+                per_page: perPage,
+                username: searchUsername
+            },
+            success: function(res) {
+                if (res.success) {
+                    totalPages = res.pages || 1;
+                    totalRecords = res.total || 0;
+                    $('#totalRecords').text(totalRecords);
+                    $('#currentPage').text(currentPage);
+                    $('#totalPages').text(totalPages);
+                    renderUserTable(res.data);
+                    updateButtons();
+                } else {
+                    $('#userTableBody').html('<table><td colspan="4" class="text-center text-danger py-5">加载失败</a></a>');
+                }
+            },
+            error: function() {
+                $('#userTableBody').html('<tr><td colspan="4" class="text-center text-danger py-5">加载失败</a></a>');
+            }
+        });
+    }
+
+    function renderUserTable(users) {
+        if (!users || users.length === 0) {
+            $('#userTableBody').html('<tr><td colspan="4" class="text-center text-muted py-5">暂无用户</a></a>');
+            return;
+        }
+
+        let html = '';
+        for (let i = 0; i < users.length; i++) {
+            const user = users[i];
+            const badgeClass = user.role === 'admin' ? 'bg-success' : 'bg-secondary';
+            const badgeText = user.role === 'admin' ? '管理员' : '普通用户';
+
+            html += `
+                <tr>
+                    <td class="fw-bold">${escapeHtml(user.username)}</a>
+                    <td><span class="badge ${badgeClass}">${badgeText}</span></a>
+                    <td class="text-muted">${user.create_time}</a>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-success me-1" data-id="${user.id}" data-action="edit">编辑</button>
+                        <button class="btn btn-sm btn-outline-danger" data-id="${user.id}" data-action="delete">删除</button>
+                    </a>
+                </tr>
+            `;
+        }
+        $('#userTableBody').html(html);
+
+        // 绑定按钮事件
+        $('[data-action="edit"]').off('click').on('click', function() {
+            const id = $(this).data('id');
+            editUser(id);
+        });
+        $('[data-action="delete"]').off('click').on('click', function() {
+            const id = $(this).data('id');
+            deleteUser(id);
+        });
+    }
+
+    function editUser(id) {
+        $.ajax({
+            url: '/admin/api/users/' + id,
+            method: 'GET',
+            success: function(res) {
+                if (res.success) {
+                    $('#userId').val(res.data.id);
+                    $('#username').val(res.data.username);
+                    $('#role').val(res.data.role);
+                    $('#passwordDiv').hide();
+                    $('#userModalLabel').html('<i class="fas fa-user-edit me-2"></i>编辑用户');
+                    if (userModal) {
+                        userModal.show();
+                    } else {
+                        initModal();
+                        userModal.show();
+                    }
+                } else {
+                    window.showToast('获取用户信息失败', 'error');
+                }
+            },
+            error: function() {
+                window.showToast('获取用户信息失败', 'error');
+            }
+        });
+    }
+
+    function deleteUser(id) {
+        if (confirm('确定要删除该用户吗？')) {
+            $.ajax({
+                url: '/admin/api/users/' + id,
+                method: 'DELETE',
+                success: function(res) {
+                    if (res.success) {
+                        window.showToast('删除成功', 'success');
+                        loadUsers();
+                    } else {
+                        window.showToast(res.error, 'error');
+                    }
+                },
+                error: function() {
+                    window.showToast('删除失败', 'error');
+                }
+            });
+        }
+    }
+
+    function updateButtons() {
+        $('#prevPage').prop('disabled', currentPage <= 1);
+        $('#nextPage').prop('disabled', currentPage >= totalPages);
+    }
+
+    function goToPage(page) {
+        if (page < 1 || page > totalPages || page === currentPage) return;
+        currentPage = page;
+        loadUsers();
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text.replace(/&/g, '&amp;')
+                   .replace(/</g, '&lt;')
+                   .replace(/>/g, '&gt;');
+    }
+
+    // 事件绑定
+    $('#addUserBtn').off('click').on('click', function() {
+        $('#userForm')[0].reset();
+        $('#userId').val('');
+        $('#passwordDiv').show();
+        $('#userModalLabel').html('<i class="fas fa-user-plus me-2"></i>添加用户');
+        if (userModal) {
+            userModal.show();
+        } else {
+            initModal();
+            userModal.show();
+        }
+    });
+
+    $('#userForm').off('submit').on('submit', function(e) {
+        e.preventDefault();
+
+        const id = $('#userId').val();
+        const data = {
+            username: $('#username').val(),
+            role: $('#role').val()
+        };
+        if (!id) {
+            data.password = $('#password').val();
+        }
+
+        const url = id ? '/admin/api/users/' + id : '/admin/api/users';
+        const method = id ? 'PUT' : 'POST';
+
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function(res) {
+                if (res.success) {
+                    if (userModal) {
+                        userModal.hide();
+                    }
+                    window.showToast(res.message, 'success');
+                    loadUsers();
+                } else {
+                    window.showToast(res.error, 'error');
+                }
+            },
+            error: function() {
+                window.showToast('操作失败', 'error');
+            }
+        });
+    });
+
+    $('#searchBtn').off('click').on('click', function() {
+        currentPage = 1;
+        loadUsers();
+    });
+
+    $('#resetBtn').off('click').on('click', function() {
+        $('#searchUsername').val('');
+        currentPage = 1;
+        loadUsers();
+    });
+
+    $('#prevPage').off('click').on('click', function() {
+        goToPage(currentPage - 1);
+    });
+
+    $('#nextPage').off('click').on('click', function() {
+        goToPage(currentPage + 1);
+    });
+
+    $('#perPage').off('change').on('change', function() {
+        perPage = parseInt($(this).val());
+        currentPage = 1;
+        loadUsers();
+    });
+
+    $('#searchUsername').off('keypress').on('keypress', function(e) {
+        if (e.which === 13) {
+            currentPage = 1;
+            loadUsers();
+        }
+    });
+
+    // 初始化
+    initModal();
+    loadUsers();
+})();
+</script>
